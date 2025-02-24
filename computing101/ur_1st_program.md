@@ -11,6 +11,7 @@ And we don't have permission to operate on it.
 Maybe this will be useful in the folowing challenges.
 
 # Your First Syscall
+This assembly code let the program exit.
 ```s ur_1st_syscall.s
 mov rax, 60
 syscall
@@ -31,6 +32,7 @@ In procedure, the assemble step use `as` and the link step use `ld`.
 They're what in the description of the challenge.
 
 ### writeup
+This let program exit with code 42.
 ```s build_exe.s
 .intel_syntax noprefix
 .global _start

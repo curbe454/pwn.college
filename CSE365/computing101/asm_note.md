@@ -31,7 +31,7 @@ Use `objdump -d` to disassmble a ELF file.
 The `-M intel` flag will let the result to be the style the same as in pwn.college.
 
 # assembly operations
-mov,  
+mov, lea  
 add, sub, mul, imul, div, shr, shl,  
 and, or, not, xor,  
 push, pop,  
@@ -39,6 +39,8 @@ jmp, nop, loop,
 call, ret
 
 ### note
+`lea` take the address of a value. E.g `lea rip [rip + 0x1]` to set `rip` to be the `rip + 1`.
+
 `imul` is signed multiply.
 
 `div` is integer division. Divisor should be in `rax`, division should be in a register.
@@ -65,7 +67,7 @@ jumps to the value stored in the first argument.
 This is also right: `./short_admit.sh "mov rax, 0\nmov al, rdi\nmov rbx, 0\nmov bx, rsi\n"`
 
 # register
-`rip` store the instruction pointer.
+`rip` store the instruction pointer of the next instruction.
 
 `rbp`(Register stack Base Pointer) stores the base pointer of stack in programm.
 `rsp`(Register Stack Pointer) stores the stack pointer.

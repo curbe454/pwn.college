@@ -73,5 +73,90 @@ The return value of it is a file description code.
 
 And `<+428>` called C-language function `read(edi, rbp - 0x18, 0x8`.
 Declaration is `ssize_t read(int file_description, void* buf, size_t byte_count)`.
+The return value is the number of byte have been read, or `-1` for error.
 The value of `edi` is the file description.
-So this will read 8 bytes from "/dev/urandom" and store it to address `rbp - 0x18`, or `rsp + 0x28`, the same as the result in writeup 1.
+So this will read 8 bytes from "/dev/urandom" and store it to address `rbp - 0x18`, or `rsp + 0x28`,
+the same as the result in writeup 1.
+
+
+# lvl 4
+### description
+In order to solve this level, you must figure out a series of random values which will be placed on the stack. As before, run will start you out, but it will interrupt the program and you must, carefully, continue its execution.
+
+### writeup
+I skimmed the codes and think there's nothing different from challenge level 3.
+I used breakpoint to stop at where I was familiar with in level 3(before the open function and after the read function),
+and `display/8gx $rsp` to see the changed value in `[rsp + 0x28]`.
+Until I input 4 times the correct answer, then it gave me the flag.
+
+### assembly analyse
+It's also to code a python script to accoplish it.
+
+Before that, I should find where the loop is.
+
+(After a few minutes) I read the code and I found the loop is related to the junk I've talked at level 3.
+It's the junk part in level 3:
+```s
+   0x0000000000001c74 <+462>:   mov    DWORD PTR [rbp-0x1c],0x0
+   0x0000000000001c7b <+469>:   jmp    0x1d2b <main+645>
+   0x0000000000001d2b <+645>:   cmp    DWORD PTR [rbp-0x1c],0x0
+   0x0000000000001d2f <+649>:   jle    0x1c80 <main+474>
+```
+(Actually this is not difinitely the same with level 3, but I don't want reopen level 3 anymore)
+
+In level 4, the number of `<+645>` is not 0x0. It's 0x3. So I input 4 times of answer in writeup.
+There's the code to change the value in `rbp-0x1c`:
+```s
+   0x0000000000001cc8 <+546>:   lea    rax,[rbp-0x10]
+   0x0000000000001ccc <+550>:   mov    rsi,rax
+   0x0000000000001ccf <+553>:   lea    rdi,[rip+0xe31]        # 0x2b07
+   0x0000000000001cd6 <+560>:   mov    eax,0x0
+   0x0000000000001cdb <+565>:   call   0x1260 <__isoc99_scanf@plt>
+```
+This is `scanf` function in C-language. This is the function recieving inputs from stdin.
+I know it is `int scanf(const char* format_string, addr1, addr2, ...)`.
+The number and type of addr arguments depends on the `format_string`.
+The return value is the number of read variables or -1 as error.
+
+(I'm too lazy to code the python script...)
+
+# lvl 5
+The logic of whole `main` function doesn't change, but requires 8 times to input correct answer in `[rbp-0x18]`.
+
+Here is the logic to judge the input.
+```s
+   0x0000000000001dd0 <+810>:   mov    rdx,QWORD PTR [rbp-0x10]
+   0x0000000000001dd4 <+814>:   mov    rax,QWORD PTR [rbp-0x18]
+   0x0000000000001dd8 <+818>:   cmp    rdx,rax
+   0x0000000000001ddb <+821>:   je     0x1de7 <main+833>
+   0x0000000000001ddd <+823>:   mov    edi,0x1
+   0x0000000000001de2 <+828>:   call   0x1280 <exit@plt>
+```
+If I want it get and input the answer automatically, I should get the 8-byte value in `[rbp-0x18]`
+and set the value in `[rbp-0x10]` the same with `[rbp-0x18]`.
+
+### writeup 1
+To skip the scanf function, I set the rip to the next instruction.
+```gdb
+r
+b *(main+757)
+commands
+        set $rip = *(main+762)
+        set *(long long*)($rbp-0x10) = *(long long*)($rbp-0x18)
+        c
+end
+c
+q
+```
+`main+757` points to the call instruction of `scanf` function and `main+762` points to the next instruction.
+Since the programs compare the value of `[rbp-0x10]` and `[rbp-0x18]`,
+I set the value in `rbp-0x10` to the `[rbp-0x18]`.
+The casting to `(long long*)` is to let the gdb know the value in `rbp-0x10` is a 64-bit value,
+because the `long long` type in C-language have 64-bit(in the current case).
+
+### writeup 2
+Exactly I didn't take the writeup 1 method.
+Since it compare the `DWORD PTR [rbp-0x1c]` to `0x7`, I can change the value of `DWORD PTR [rbp-0x1c]` to `0x8`.
+
+Just set a breakpoint at that `cmp` instruction and `set *(char*)($rbp-0x1c) = 0x8`
+(although the char type in C-language have only 8-bits, it doesn't matter).

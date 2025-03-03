@@ -277,14 +277,14 @@ p.interactive()
 ```
 
 # indirect-jump
-It seems that the `as` and `gcc -nostdlib` do not support comments...
+The `as` and `gcc -nostdlib` do support line comment start from '#'...
 ```s
 .intel_syntax noprefix
 .global _start
 _start:
 cmp rdi, 3
 jle not_default
-mov rdi, 4 ;change the value from over 4
+mov rdi, 4 # change the value from over 4
 
 not_default:
 imul rdi, 8
@@ -299,16 +299,16 @@ jmp [rsi]
 _start:
 mov rax, 0
 mov rcx, rsi
-sub rcx, 0x1 ; start from n-1
+sub rcx, 0x1 # start from n-1
 
 calc_sum:
 mov rdx, rcx
-imul rdx, 0x8 ; mul 8 to be shift length
-add rdx, rdi ; add to be address
+imul rdx, 0x8 # mul 8 to be shift length
+add rdx, rdi # add to be address
 add rax, [rdx]
 loop calc_sum
 
-add rax, [rdi] ; end from 0 shift of address
+add rax, [rdi] # end from 0 shift of address
 
 mov rdx, 0
 div rsi

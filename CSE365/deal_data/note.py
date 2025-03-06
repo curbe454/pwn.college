@@ -15,3 +15,5 @@ s.encode('utf-8'), s.encode('utf-16'), ch.encode('latin-1') # there're many enco
 
 try: s.encode().decode('latin-1') # it makes error when try strange decoding way
 except: pass
+
+assert ch == chr(ord(ch))

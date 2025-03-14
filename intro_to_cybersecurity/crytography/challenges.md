@@ -73,3 +73,51 @@ while True:
 print(p.recvall().decode())
 ```
 
+# Many Time Pad
+### ques
+```py
+flag = open("/flag", "rb").read()
+
+key = get_random_bytes(256)
+ciphertext = strxor(flag, key[:len(flag)])
+
+print(f"Flag Ciphertext (b64): {b64encode(ciphertext).decode()}")
+
+while True:
+    plaintext = b64decode(input("Plaintext (b64): "))
+    ciphertext = strxor(plaintext, key[:len(plaintext)])
+    print(f"Ciphertext (b64): {b64encode(ciphertext).decode()}")
+```
+### writeup
+```
+import pwn
+from Crypto.Util.strxor import strxor
+from base64 import b64encode, b64decode
+
+p = pwn.process('/challenge/run')
+
+line = p.recvline()
+print(line.decode(),end='')
+cipher64b = line.split(b':')[-1].strip()
+cipherb = b64decode(cipher64b)
+
+def get_encodedb(p, s):
+    p.send(b64encode(s.encode()) + b'\n')
+
+    s = p.recvline().split(b':')[-1].strip()
+    return b64decode(s)
+
+flag = ''
+while True:
+    for byte in range(0x21, 0xff):
+        char = chr(byte)
+        check = get_encodedb(p, flag + char)
+        if check == cipherb[:len(check)]:
+            flag += char
+        # print(flag + char)
+
+    if len(check) >= len(cipherb):
+        break
+
+print(flag)
+```

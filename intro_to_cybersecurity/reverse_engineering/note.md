@@ -27,3 +27,7 @@ The `es` is of no use in 64 bit mode.
 `repnz scas al, BYTE PTR es:[rdi]` search `rcx` bytes in `rdi` address to find a byte equals to `al`.
 
 `movsxd` sign expand, to let a number with fewer bits to more. E.g. `movsxd rax, eax` to expand 32 bit to 64 bit.
+
+`movzx` zero expand, to expand unsigned number.
+
+`jbe` compare two unsigned number, like `jle`.

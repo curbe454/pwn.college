@@ -31,3 +31,8 @@ The `es` is of no use in 64 bit mode.
 `movzx` zero expand, to expand unsigned number.
 
 `jbe` compare two unsigned number, like `jle`.
+
+`printf "|%2.3s" a ab abc abcd` will print `| a|ab|abc|abc`.  
+I can generate repeated string by `printf "mystr%.0s" $(seq 3)` or `printf "mystr%.0s" {1..3}`.
+
+`cmovne r1, r2` conditional mov while value in `r2` is not zero.

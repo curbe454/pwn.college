@@ -27,7 +27,7 @@ So the writeup of the first above challenge is reusable.
 
 I have a sense of foreboding. Let me see will I use `numpy` or `Pillow` then.
 
-I come up a good way to write writeup, that's to write a C language version of the asm code.
+I come up a good way to write writeup, to write a C language version of the asm code.
 ```c
 #include <stdio.h>
 #include <unistd.h>
@@ -100,7 +100,7 @@ check_version:
         char* msg = "ERROR: Incorrect height!";
         goto err_exit;
 
-    byte** pimg_data = (byte*)malloc(0x780); // it is 0x50 * 0x18 !!!
+    byte** pimg_data = (byte**)malloc(0x780); // it is 0x50 * 0x18 !!!
     char* msg = "ERROR: Failed to allocate memory for the image data!";
     if (!pimg_data)
         goto err_exit;
@@ -126,3 +126,39 @@ check_version:
 }
 ```
 I do these for an hour... Maybe I won't do this.
+
+# Behold the cIMG!
+The program will read the img by the input size.
+
+The display function `display(char* magic_nums, char* img_bytes)`.  
+All bytes to be display should not less than `0x20`.  
+There's a loop to detect if the bytes in cimg is exactly have 0x113 bytes are not `0x20`.
+
+`printf 'import pwn, struct\np=pwn.process("/challenge/cimg")\np.send(struct.pack("<hhhbb", 0x4963, 0x474d, 0x1, 0x10, 0x12));p.send(b"\\x20"*0xd + b"\\x30"*0x113)\nprint(p.recvall().decode())' | python`
+
+# A Basic cIMG
+Now the program can print colorful chars.
+
+chars which is not `0x20` should be `0x780`, all pixels should have color `#8c1d40`.
+
+### writeup 1
+```py
+import pwn, struct
+
+p = pwn.process("/challenge/cimg")
+
+metadata = struct.pack("<hhhbb", 0x4963, 0x474d, 0x2, 0x18, 0x50)
+data = b'\x8c\x1d\x40\x30' * 0x780
+p.send(metadata)
+p.send(data)
+print(
+        repr(metadata),
+       # repr(data),
+        sep='\n')
+
+print(p.recvall().decode())
+```
+
+### writeup 2
+0x780 == 1920  
+`data=$(printf '\x8c\x1d\x40\x30%.0s' {1..1920}) && printf "cIMG\x2\x0\x50\x18$data" | /challenge/cimg`

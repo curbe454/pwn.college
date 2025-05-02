@@ -1,3 +1,2 @@
-- [ ] CSE365 2025-spring(module 4/6)
+- [ ] CSE365 2025-spring(module 6/10)
 - [ ] Playing with Programs(module 4/5)
-- [ ] Intro to cybersecurity(module 2/7)
